@@ -1,0 +1,27 @@
+{
+  "name": "try-supersplat-by-playcanvas-react",
+  "version": "1.0.0",
+  "description": "3D Gaussian Splatting viewer using PlayCanvas and React",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["3dgs", "gaussian-splatting", "playcanvas", "react"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2"
+  },
+  "dependencies": {
+    "playcanvas": "^2.13.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
