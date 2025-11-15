@@ -28,7 +28,8 @@ export const GaussianSplatViewer = () => {
     app.setCanvasResolution(pc.RESOLUTION_AUTO)
 
     // Ensure canvas is resized when window changes size
-    window.addEventListener('resize', () => app.resizeCanvas())
+    const handleResize = () => app.resizeCanvas()
+    window.addEventListener('resize', handleResize)
 
     // Create camera entity
     const camera = new pc.Entity('camera')
@@ -65,7 +66,7 @@ export const GaussianSplatViewer = () => {
 
     // Cleanup function
     return () => {
-      window.removeEventListener('resize', () => app.resizeCanvas())
+      window.removeEventListener('resize', handleResize)
       app.destroy()
     }
   }, [])
