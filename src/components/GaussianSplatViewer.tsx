@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pc from 'playcanvas'
 import { OrbitCamera } from '../utils/OrbitCamera'
+import { FlyCamera } from '../utils/FlyCamera'
 import './GaussianSplatViewer.css'
+
+type CameraMode = 'orbit' | 'fly'
 
 export const GaussianSplatViewer = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const appRef = useRef<pc.Application | null>(null)
+  const cameraEntityRef = useRef<pc.Entity | null>(null)
   const orbitCameraRef = useRef<OrbitCamera | null>(null)
+  const flyCameraRef = useRef<FlyCamera | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -38,6 +44,7 @@ export const GaussianSplatViewer = () => {
     })
     camera.setPosition(0, 0, 5)
     app.root.addChild(camera)
+    cameraEntityRef.current = camera
 
     // Create light entity
     const light = new pc.Entity('light')
@@ -67,8 +74,67 @@ export const GaussianSplatViewer = () => {
     // Cleanup function
     return () => {
       window.removeEventListener('resize', handleResize)
+      orbitCameraRef.current?.destroy()
+      flyCameraRef.current?.destroy()
       app.destroy()
     }
+  }, [])
+
+  // Camera mode switching logic
+  useEffect(() => {
+    if (!appRef.current || !cameraEntityRef.current) return
+
+    const app = appRef.current
+    const camera = cameraEntityRef.current
+
+    if (cameraMode === 'fly') {
+      // Switch to Fly mode
+      if (orbitCameraRef.current) {
+        orbitCameraRef.current.destroy()
+        orbitCameraRef.current = null
+      }
+
+      if (!flyCameraRef.current) {
+        flyCameraRef.current = new FlyCamera(app, camera, {
+          moveSpeed: 0.1,
+          lookSpeed: 0.3,
+          initialPitch: -14,
+          initialYaw: 45,
+        })
+      }
+    } else {
+      // Switch to Orbit mode
+      if (flyCameraRef.current) {
+        flyCameraRef.current.destroy()
+        flyCameraRef.current = null
+      }
+
+      if (!orbitCameraRef.current) {
+        orbitCameraRef.current = new OrbitCamera(app, camera, {
+          distance: Math.sqrt(4*4 + 1*1 + 4*4), // ~5.74
+          pitch: -14,
+          yaw: 45,
+          mouseSpeed: 0.3,
+          wheelSpeed: 0.01,
+          panSpeed: 0.003,
+          minDistance: 1,
+          maxDistance: 100,
+        })
+      }
+    }
+  }, [cameraMode])
+
+  // Keyboard shortcut for camera mode switching (Tab key)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        setCameraMode(prev => prev === 'orbit' ? 'fly' : 'orbit')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const loadGaussianSplatFile = async (url: string, filename: string) => {
@@ -147,6 +213,21 @@ export const GaussianSplatViewer = () => {
         />
         {isLoading && <span className="status">Loading...</span>}
         {error && <span className="error">{error}</span>}
+      </div>
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        padding: '8px 12px',
+        background: 'rgba(0, 0, 0, 0.7)',
+        color: 'white',
+        borderRadius: '4px',
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        userSelect: 'none',
+        pointerEvents: 'none',
+      }}>
+        Camera: {cameraMode.toUpperCase()} (Tab to switch)
       </div>
       <canvas ref={canvasRef} className="playcanvas-canvas" />
     </div>

@@ -7,17 +7,27 @@ A web-based 3D Gaussian Splatting (3DGS) viewer built with PlayCanvas Engine and
 ## Features
 
 - 🎨 **Multiple Format Support**: Load `.ply`, `.sog`, and `.splat` files
-- 🎮 **Interactive Controls**: Orbit, pan, and zoom with mouse/touch
+- 🎮 **Dual Camera Modes**: Switch between Orbit and Fly modes with Tab key
+- 🚀 **Free Flight Navigation**: WASD controls for exploring large scenes
+- 🖱️ **Interactive Controls**: Orbit, pan, zoom, and first-person navigation
 - ⚡ **High Performance**: Powered by PlayCanvas Engine
 - 📱 **Touch Support**: Full mobile and tablet compatibility
 - 🎯 **TypeScript**: Fully typed with strict mode enabled
 
 ## Demo
 
-Load a 3DGS file and interact with it:
+Load a 3DGS file and interact with it using two camera modes:
+
+### Orbit Mode (Default)
 - **Rotate**: Left-click and drag
 - **Pan**: Shift + left-click and drag
 - **Zoom**: Mouse wheel or pinch gesture
+
+### Fly Mode
+- **Move**: W/A/S/D keys
+- **Up/Down**: R/F keys
+- **Look**: Left-click and drag
+- **Switch Mode**: Tab key
 
 ## Quick Start
 
@@ -73,7 +83,8 @@ The application will be available at `http://localhost:5173`
 │   ├── components/          # React components
 │   │   └── GaussianSplatViewer.tsx  # Main 3DGS viewer
 │   ├── utils/              # Utility classes
-│   │   └── OrbitCamera.ts  # Custom camera controller
+│   │   ├── OrbitCamera.ts  # Orbit camera controller
+│   │   └── FlyCamera.ts    # Fly camera controller
 │   ├── App.tsx             # Root component
 │   ├── main.tsx            # Entry point
 │   └── *.css               # Component styles
@@ -84,20 +95,47 @@ The application will be available at `http://localhost:5173`
 
 ## Camera Controls
 
-### Mouse Controls
+The viewer supports two camera modes. Press **Tab** to switch between them.
+
+### Orbit Mode (Object-Centric)
+
+**Mouse Controls:**
 - **Orbit**: Left-click + drag
 - **Pan**: Shift + left-click + drag
 - **Zoom**: Mouse wheel
 
-### Touch Controls
+**Touch Controls:**
 - **Orbit**: One finger drag
 - **Zoom**: Two finger pinch
-- **Pan**: (Not implemented yet)
+
+**Best for:** Inspecting objects from all angles
+
+### Fly Mode (First-Person)
+
+**Keyboard Controls:**
+- **W**: Move forward
+- **S**: Move backward
+- **A**: Move left
+- **D**: Move right
+- **R**: Move up
+- **F**: Move down
+
+**Mouse Controls:**
+- **Look Around**: Left-click + drag
+
+**Best for:** Navigating through large scenes or locations
+
+### Mode Switching
+
+- Press **Tab** to toggle between Orbit and Fly modes
+- Current mode is displayed in the top-left corner of the viewport
+- Camera position and orientation are preserved when switching
 
 ### Control Sensitivity
 
 Default sensitivity values can be adjusted in `GaussianSplatViewer.tsx`:
 
+**Orbit Mode:**
 ```typescript
 {
   mouseSpeed: 0.3,    // Rotation sensitivity
@@ -108,28 +146,50 @@ Default sensitivity values can be adjusted in `GaussianSplatViewer.tsx`:
 }
 ```
 
+**Fly Mode:**
+```typescript
+{
+  moveSpeed: 0.1,     // Movement speed (units per second)
+  lookSpeed: 0.3,     // Look rotation sensitivity
+}
+```
+
 ## Architecture
 
 ### GaussianSplatViewer Component
 
 Main React component that:
 - Initializes PlayCanvas application
+- Manages dual camera mode system (Orbit/Fly)
+- Handles camera mode switching with Tab key
 - Manages camera and lighting setup
 - Handles 3DGS file loading
-- Provides UI controls
+- Provides UI controls and mode indicator
 
 ### OrbitCamera Utility
 
-Custom camera controller featuring:
+Custom camera controller for object-centric viewing:
 - Spherical coordinate-based positioning
+- Orbit, pan, and zoom controls
 - Gimbal lock prevention using cross product calculations
 - Configurable sensitivity and constraints
+- Event-driven architecture with automatic cleanup
+
+### FlyCamera Utility
+
+Custom camera controller for free flight movement:
+- First-person WASD keyboard controls
+- R/F keys for vertical movement
+- Mouse drag for look direction control
+- Frame-rate independent movement
+- Pitch clamping to prevent gimbal lock (±89°)
 - Event-driven architecture with automatic cleanup
 
 ## Development Notes
 
 ### Memory Management
 - PlayCanvas application is properly destroyed on component unmount
+- Both camera controllers call `destroy()` when switching modes or on unmount
 - Canvas ref is checked for null before initialization
 - Object URLs from file input are automatically managed by the browser
 
