@@ -55,11 +55,10 @@ export const GaussianSplatViewer = () => {
     app.root.addChild(light)
 
     // Create orbit camera controller
-    // Initial camera position similar to PlayCanvas React example: [4, 1, 4]
-    // This translates to pitch ~14° and yaw ~45°
+    // Initial camera position with horizontal view
     orbitCameraRef.current = new OrbitCamera(app, camera, {
-      distance: Math.sqrt(4*4 + 1*1 + 4*4), // ~5.74
-      pitch: 14, // Looking slightly down (positive = looking down in Y-up system)
+      distance: Math.sqrt(4*4 + 0*0 + 4*4), // ~5.66 (horizontal view)
+      pitch: 0,  // Horizontal view (0 degrees)
       yaw: 45,   // 45 degrees from Z axis
       mouseSpeed: 0.3,
       wheelSpeed: 0.01,
@@ -90,7 +89,7 @@ export const GaussianSplatViewer = () => {
     if (cameraMode === 'fly') {
       // Switch to Fly mode
       // Get current camera state from OrbitCamera
-      const currentPitch = orbitCameraRef.current?.getPitch() ?? 14
+      const currentPitch = orbitCameraRef.current?.getPitch() ?? 0
       const currentYaw = orbitCameraRef.current?.getYaw() ?? 45
 
       if (orbitCameraRef.current) {
@@ -100,7 +99,7 @@ export const GaussianSplatViewer = () => {
 
       if (!flyCameraRef.current) {
         flyCameraRef.current = new FlyCamera(app, camera, {
-          moveSpeed: 0.1,
+          moveSpeed: 0.05,
           lookSpeed: 0.3,
           initialPitch: currentPitch,
           initialYaw: currentYaw,
@@ -109,13 +108,13 @@ export const GaussianSplatViewer = () => {
     } else {
       // Switch to Orbit mode
       // Get current camera state from FlyCamera
-      const currentPitch = flyCameraRef.current?.getPitch() ?? 14
+      const currentPitch = flyCameraRef.current?.getPitch() ?? 0
       const currentYaw = flyCameraRef.current?.getYaw() ?? 45
 
       // Calculate distance and target from current camera position
       // The camera will orbit around a point in front of it
       const currentPos = camera.getPosition()
-      const defaultDistance = Math.sqrt(4*4 + 1*1 + 4*4) // ~5.74
+      const defaultDistance = Math.sqrt(4*4 + 0*0 + 4*4) // ~5.66 (horizontal view)
 
       // Calculate where the camera is looking (target point)
       // Must match FlyCamera's forward direction calculation

@@ -31,9 +31,9 @@ export class FlyCamera {
   constructor(app: pc.Application, camera: pc.Entity, options: FlyCameraOptions = {}) {
     this.app = app
     this.camera = camera
-    this.moveSpeed = options.moveSpeed ?? 0.1
+    this.moveSpeed = options.moveSpeed ?? 0.05
     this.lookSpeed = options.lookSpeed ?? 0.3
-    this.pitch = options.initialPitch ?? 14
+    this.pitch = options.initialPitch ?? 0
     this.yaw = options.initialYaw ?? 45
 
     // Set initial camera rotation
