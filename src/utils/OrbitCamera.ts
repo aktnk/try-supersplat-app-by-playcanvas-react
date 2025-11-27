@@ -11,6 +11,7 @@ interface OrbitCameraOptions {
   maxDistance?: number
   minPitch?: number
   maxPitch?: number
+  target?: pc.Vec3  // Optional target position, defaults to (0, 0, 0)
 }
 
 export class OrbitCamera {
@@ -46,7 +47,7 @@ export class OrbitCamera {
   constructor(app: pc.Application, camera: pc.Entity, options: OrbitCameraOptions = {}) {
     this.app = app
     this.camera = camera
-    this.target = new pc.Vec3(0, 0, 0)
+    this.target = options.target ? options.target.clone() : new pc.Vec3(0, 0, 0)
     this.distance = options.distance ?? 5
     this.pitch = options.pitch ?? 0
     this.yaw = options.yaw ?? 0
@@ -121,9 +122,9 @@ export class OrbitCamera {
 
       // Apply pan movement
       const panScale = this.panSpeed * this.distance
-      this.target.x += rightX * deltaX * panScale - upX * deltaY * panScale
-      this.target.y -= upY * deltaY * panScale
-      this.target.z += rightZ * deltaX * panScale - upZ * deltaY * panScale
+      this.target.x -= rightX * deltaX * panScale - upX * deltaY * panScale
+      this.target.y += upY * deltaY * panScale
+      this.target.z -= rightZ * deltaX * panScale - upZ * deltaY * panScale
 
       this.lastMouseX = event.clientX
       this.lastMouseY = event.clientY
@@ -134,8 +135,10 @@ export class OrbitCamera {
       const deltaX = event.clientX - this.lastMouseX
       const deltaY = event.clientY - this.lastMouseY
 
+      // Mouse right = yaw decreases (orbit camera moves right)
+      // Mouse down = pitch increases (orbit camera moves down)
       this.yaw -= deltaX * this.mouseSpeed
-      this.pitch -= deltaY * this.mouseSpeed
+      this.pitch += deltaY * this.mouseSpeed
 
       // Clamp pitch if limits are finite
       if (isFinite(this.minPitch) && isFinite(this.maxPitch)) {
@@ -186,8 +189,10 @@ export class OrbitCamera {
       const deltaX = event.touches[0].clientX - this.lastMouseX
       const deltaY = event.touches[0].clientY - this.lastMouseY
 
+      // Touch right = yaw decreases (orbit camera moves right)
+      // Touch down = pitch increases (orbit camera moves down)
       this.yaw -= deltaX * this.mouseSpeed
-      this.pitch -= deltaY * this.mouseSpeed
+      this.pitch += deltaY * this.mouseSpeed
 
       // Clamp pitch if limits are finite
       if (isFinite(this.minPitch) && isFinite(this.maxPitch)) {
@@ -242,10 +247,11 @@ export class OrbitCamera {
     const forwardY = this.target.y - y
     const forwardZ = this.target.z - z
 
-    // Up vector = forward × right (cross product)
-    const upX = forwardY * rightZ - forwardZ * rightY
-    const upY = forwardZ * rightX - forwardX * rightZ
-    const upZ = forwardX * rightY - forwardY * rightX
+    // Up vector = right × forward (cross product)
+    // Note: Order matters! right × forward gives upward vector
+    const upX = rightY * forwardZ - rightZ * forwardY
+    const upY = rightZ * forwardX - rightX * forwardZ
+    const upZ = rightX * forwardY - rightY * forwardX
 
     const up = new pc.Vec3(upX, upY, upZ).normalize()
 
@@ -258,6 +264,14 @@ export class OrbitCamera {
     this.updateCameraPosition()
   }
 
+  /**
+   * Set target position without updating camera position.
+   * Useful when preserving camera position during mode switches.
+   */
+  public setTargetOnly(target: pc.Vec3) {
+    this.target.copy(target)
+  }
+
   public setDistance(distance: number) {
     this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, distance))
     this.updateCameraPosition()
@@ -268,6 +282,22 @@ export class OrbitCamera {
     this.yaw = 0
     this.distance = 5
     this.updateCameraPosition()
+  }
+
+  public getPitch(): number {
+    return this.pitch
+  }
+
+  public getYaw(): number {
+    return this.yaw
+  }
+
+  public getDistance(): number {
+    return this.distance
+  }
+
+  public getTarget(): pc.Vec3 {
+    return this.target.clone()
   }
 
   public destroy() {

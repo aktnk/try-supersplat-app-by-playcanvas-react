@@ -59,8 +59,8 @@ export const GaussianSplatViewer = () => {
     // This translates to pitch ~14° and yaw ~45°
     orbitCameraRef.current = new OrbitCamera(app, camera, {
       distance: Math.sqrt(4*4 + 1*1 + 4*4), // ~5.74
-      pitch: -14, // Looking slightly down
-      yaw: 45,    // 45 degrees from Z axis
+      pitch: 14, // Looking slightly down (positive = looking down in Y-up system)
+      yaw: 45,   // 45 degrees from Z axis
       mouseSpeed: 0.3,
       wheelSpeed: 0.01,
       panSpeed: 0.003,
@@ -89,6 +89,10 @@ export const GaussianSplatViewer = () => {
 
     if (cameraMode === 'fly') {
       // Switch to Fly mode
+      // Get current camera state from OrbitCamera
+      const currentPitch = orbitCameraRef.current?.getPitch() ?? 14
+      const currentYaw = orbitCameraRef.current?.getYaw() ?? 45
+
       if (orbitCameraRef.current) {
         orbitCameraRef.current.destroy()
         orbitCameraRef.current = null
@@ -98,27 +102,52 @@ export const GaussianSplatViewer = () => {
         flyCameraRef.current = new FlyCamera(app, camera, {
           moveSpeed: 0.1,
           lookSpeed: 0.3,
-          initialPitch: -14,
-          initialYaw: 45,
+          initialPitch: currentPitch,
+          initialYaw: currentYaw,
         })
       }
     } else {
       // Switch to Orbit mode
+      // Get current camera state from FlyCamera
+      const currentPitch = flyCameraRef.current?.getPitch() ?? 14
+      const currentYaw = flyCameraRef.current?.getYaw() ?? 45
+
+      // Calculate distance and target from current camera position
+      // The camera will orbit around a point in front of it
+      const currentPos = camera.getPosition()
+      const defaultDistance = Math.sqrt(4*4 + 1*1 + 4*4) // ~5.74
+
+      // Calculate where the camera is looking (target point)
+      // Must match FlyCamera's forward direction calculation
+      const pitchRad = currentPitch * (Math.PI / 180)
+      const yawRad = currentYaw * (Math.PI / 180)
+      const forwardX = -Math.sin(yawRad) * Math.cos(pitchRad)
+      const forwardY = -Math.sin(pitchRad)
+      const forwardZ = -Math.cos(yawRad) * Math.cos(pitchRad)
+
+      // Place target point at default distance in front of camera
+      const targetX = currentPos.x + forwardX * defaultDistance
+      const targetY = currentPos.y + forwardY * defaultDistance
+      const targetZ = currentPos.z + forwardZ * defaultDistance
+
       if (flyCameraRef.current) {
         flyCameraRef.current.destroy()
         flyCameraRef.current = null
       }
 
       if (!orbitCameraRef.current) {
+        // IMPORTANT: Pass the calculated target in options so OrbitCamera can use it
+        // in the constructor. This prevents camera position from changing.
         orbitCameraRef.current = new OrbitCamera(app, camera, {
-          distance: Math.sqrt(4*4 + 1*1 + 4*4), // ~5.74
-          pitch: -14,
-          yaw: 45,
+          distance: defaultDistance,
+          pitch: currentPitch,
+          yaw: currentYaw,
           mouseSpeed: 0.3,
           wheelSpeed: 0.01,
           panSpeed: 0.003,
           minDistance: 1,
           maxDistance: 100,
+          target: new pc.Vec3(targetX, targetY, targetZ),
         })
       }
     }
@@ -167,6 +196,13 @@ export const GaussianSplatViewer = () => {
           entity.addComponent('gsplat', {
             asset: asset,
           })
+          
+          // Fix coordinate system mismatch:
+          // 3DGS data uses Y-down coordinate system (camera/CV convention)
+          // PlayCanvas uses Y-up coordinate system (OpenGL convention)
+          // Rotate 180 degrees around X-axis to flip the model
+          entity.setLocalEulerAngles(180, 0, 0)
+          
           app.root.addChild(entity)
           setIsLoading(false)
         } catch (err) {

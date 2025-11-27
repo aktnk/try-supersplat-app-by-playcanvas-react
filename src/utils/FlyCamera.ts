@@ -33,7 +33,7 @@ export class FlyCamera {
     this.camera = camera
     this.moveSpeed = options.moveSpeed ?? 0.1
     this.lookSpeed = options.lookSpeed ?? 0.3
-    this.pitch = options.initialPitch ?? -14
+    this.pitch = options.initialPitch ?? 14
     this.yaw = options.initialYaw ?? 45
 
     // Set initial camera rotation
@@ -93,11 +93,10 @@ export class FlyCamera {
       const deltaX = e.clientX - this.lastMouseX
       const deltaY = e.clientY - this.lastMouseY
 
-      // Update yaw (horizontal rotation)
+      // Mouse right = yaw decreases (camera rotates right)
+      // Mouse down = pitch increases (camera looks down)
       this.yaw -= deltaX * this.lookSpeed
-
-      // Update pitch (vertical rotation)
-      this.pitch -= deltaY * this.lookSpeed
+      this.pitch += deltaY * this.lookSpeed
 
       // Clamp pitch to avoid gimbal lock
       this.pitch = Math.max(-89, Math.min(89, this.pitch))
@@ -155,8 +154,47 @@ export class FlyCamera {
   }
 
   private updateCameraRotation() {
-    // Set camera rotation using pitch and yaw
-    this.camera.setEulerAngles(this.pitch, this.yaw, 0)
+    const pitchRad = this.pitch * pc.math.DEG_TO_RAD
+    const yawRad = this.yaw * pc.math.DEG_TO_RAD
+
+    // Use the same spherical coordinate system as OrbitCamera
+    // Calculate the "forward" direction (where camera is looking)
+    // Forward is opposite to OrbitCamera's offset (camera to target, not target to camera)
+    const forwardX = -Math.sin(yawRad) * Math.cos(pitchRad)
+    const forwardY = -Math.sin(pitchRad)
+    const forwardZ = -Math.cos(yawRad) * Math.cos(pitchRad)
+
+    // Calculate the "right" vector (perpendicular to yaw rotation axis)
+    const rightX = Math.cos(yawRad)
+    const rightY = 0
+    const rightZ = -Math.sin(yawRad)
+
+    // Up vector = right × forward (cross product)
+    // Note: Order matters! right × forward gives upward vector
+    const upX = rightY * forwardZ - rightZ * forwardY
+    const upY = rightZ * forwardX - rightX * forwardZ
+    const upZ = rightX * forwardY - rightY * forwardX
+
+    const up = new pc.Vec3(upX, upY, upZ).normalize()
+
+    // Calculate target point in front of camera
+    const currentPos = this.camera.getPosition()
+    const target = new pc.Vec3(
+      currentPos.x + forwardX,
+      currentPos.y + forwardY,
+      currentPos.z + forwardZ
+    )
+
+    // Use lookAt with the calculated up vector - same as OrbitCamera
+    this.camera.lookAt(target, up)
+  }
+
+  public getPitch(): number {
+    return this.pitch
+  }
+
+  public getYaw(): number {
+    return this.yaw
   }
 
   public destroy() {
