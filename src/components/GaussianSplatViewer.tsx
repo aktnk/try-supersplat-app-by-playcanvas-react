@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pc from 'playcanvas'
 import { OrbitCamera } from '../utils/OrbitCamera'
+import { FlyCamera } from '../utils/FlyCamera'
 import './GaussianSplatViewer.css'
+
+type CameraMode = 'orbit' | 'fly'
 
 export const GaussianSplatViewer = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const appRef = useRef<pc.Application | null>(null)
+  const cameraEntityRef = useRef<pc.Entity | null>(null)
   const orbitCameraRef = useRef<OrbitCamera | null>(null)
+  const flyCameraRef = useRef<FlyCamera | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -38,6 +44,7 @@ export const GaussianSplatViewer = () => {
     })
     camera.setPosition(0, 0, 5)
     app.root.addChild(camera)
+    cameraEntityRef.current = camera
 
     // Create light entity
     const light = new pc.Entity('light')
@@ -48,12 +55,11 @@ export const GaussianSplatViewer = () => {
     app.root.addChild(light)
 
     // Create orbit camera controller
-    // Initial camera position similar to PlayCanvas React example: [4, 1, 4]
-    // This translates to pitch ~14° and yaw ~45°
+    // Initial camera position with horizontal view
     orbitCameraRef.current = new OrbitCamera(app, camera, {
-      distance: Math.sqrt(4*4 + 1*1 + 4*4), // ~5.74
-      pitch: -14, // Looking slightly down
-      yaw: 45,    // 45 degrees from Z axis
+      distance: Math.sqrt(4*4 + 0*0 + 4*4), // ~5.66 (horizontal view)
+      pitch: 0,  // Horizontal view (0 degrees)
+      yaw: 45,   // 45 degrees from Z axis
       mouseSpeed: 0.3,
       wheelSpeed: 0.01,
       panSpeed: 0.003,
@@ -67,8 +73,96 @@ export const GaussianSplatViewer = () => {
     // Cleanup function
     return () => {
       window.removeEventListener('resize', handleResize)
+      orbitCameraRef.current?.destroy()
+      flyCameraRef.current?.destroy()
       app.destroy()
     }
+  }, [])
+
+  // Camera mode switching logic
+  useEffect(() => {
+    if (!appRef.current || !cameraEntityRef.current) return
+
+    const app = appRef.current
+    const camera = cameraEntityRef.current
+
+    if (cameraMode === 'fly') {
+      // Switch to Fly mode
+      // Get current camera state from OrbitCamera
+      const currentPitch = orbitCameraRef.current?.getPitch() ?? 0
+      const currentYaw = orbitCameraRef.current?.getYaw() ?? 45
+
+      if (orbitCameraRef.current) {
+        orbitCameraRef.current.destroy()
+        orbitCameraRef.current = null
+      }
+
+      if (!flyCameraRef.current) {
+        flyCameraRef.current = new FlyCamera(app, camera, {
+          moveSpeed: 0.05,
+          lookSpeed: 0.3,
+          initialPitch: currentPitch,
+          initialYaw: currentYaw,
+        })
+      }
+    } else {
+      // Switch to Orbit mode
+      // Get current camera state from FlyCamera
+      const currentPitch = flyCameraRef.current?.getPitch() ?? 0
+      const currentYaw = flyCameraRef.current?.getYaw() ?? 45
+
+      // Calculate distance and target from current camera position
+      // The camera will orbit around a point in front of it
+      const currentPos = camera.getPosition()
+      const defaultDistance = Math.sqrt(4*4 + 0*0 + 4*4) // ~5.66 (horizontal view)
+
+      // Calculate where the camera is looking (target point)
+      // Must match FlyCamera's forward direction calculation
+      const pitchRad = currentPitch * (Math.PI / 180)
+      const yawRad = currentYaw * (Math.PI / 180)
+      const forwardX = -Math.sin(yawRad) * Math.cos(pitchRad)
+      const forwardY = -Math.sin(pitchRad)
+      const forwardZ = -Math.cos(yawRad) * Math.cos(pitchRad)
+
+      // Place target point at default distance in front of camera
+      const targetX = currentPos.x + forwardX * defaultDistance
+      const targetY = currentPos.y + forwardY * defaultDistance
+      const targetZ = currentPos.z + forwardZ * defaultDistance
+
+      if (flyCameraRef.current) {
+        flyCameraRef.current.destroy()
+        flyCameraRef.current = null
+      }
+
+      if (!orbitCameraRef.current) {
+        // IMPORTANT: Pass the calculated target in options so OrbitCamera can use it
+        // in the constructor. This prevents camera position from changing.
+        orbitCameraRef.current = new OrbitCamera(app, camera, {
+          distance: defaultDistance,
+          pitch: currentPitch,
+          yaw: currentYaw,
+          mouseSpeed: 0.3,
+          wheelSpeed: 0.01,
+          panSpeed: 0.003,
+          minDistance: 1,
+          maxDistance: 100,
+          target: new pc.Vec3(targetX, targetY, targetZ),
+        })
+      }
+    }
+  }, [cameraMode])
+
+  // Keyboard shortcut for camera mode switching (Tab key)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        setCameraMode(prev => prev === 'orbit' ? 'fly' : 'orbit')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const loadGaussianSplatFile = async (url: string, filename: string) => {
@@ -101,6 +195,13 @@ export const GaussianSplatViewer = () => {
           entity.addComponent('gsplat', {
             asset: asset,
           })
+          
+          // Fix coordinate system mismatch:
+          // 3DGS data uses Y-down coordinate system (camera/CV convention)
+          // PlayCanvas uses Y-up coordinate system (OpenGL convention)
+          // Rotate 180 degrees around X-axis to flip the model
+          entity.setLocalEulerAngles(180, 0, 0)
+          
           app.root.addChild(entity)
           setIsLoading(false)
         } catch (err) {
@@ -147,6 +248,21 @@ export const GaussianSplatViewer = () => {
         />
         {isLoading && <span className="status">Loading...</span>}
         {error && <span className="error">{error}</span>}
+      </div>
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        padding: '8px 12px',
+        background: 'rgba(0, 0, 0, 0.7)',
+        color: 'white',
+        borderRadius: '4px',
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        userSelect: 'none',
+        pointerEvents: 'none',
+      }}>
+        Camera: {cameraMode.toUpperCase()} (Tab to switch)
       </div>
       <canvas ref={canvasRef} className="playcanvas-canvas" />
     </div>
