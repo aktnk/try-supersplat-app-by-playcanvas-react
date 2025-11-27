@@ -149,7 +149,7 @@ Default sensitivity values can be adjusted in `GaussianSplatViewer.tsx`:
 **Fly Mode:**
 ```typescript
 {
-  moveSpeed: 0.1,     // Movement speed (units per second)
+  moveSpeed: 0.05,    // Movement speed (units per second)
   lookSpeed: 0.3,     // Look rotation sensitivity
 }
 ```
